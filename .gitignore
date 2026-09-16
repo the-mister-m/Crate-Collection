@@ -1,0 +1,7 @@
+# source wavs — too big for GitHub, local only
+Audio Files/
+*.wav
+.DS_Store
+
+# stemsplitter venv
+Stemsplitter/app/.venv/

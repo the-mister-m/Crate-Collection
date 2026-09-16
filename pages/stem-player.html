@@ -1,0 +1,1302 @@
+<!--
+================================================================
+STEM PLAYER — BOILERPLATE TEMPLATE
+================================================================
+
+FOR THE FILL-IN AGENT — THIS IS YOUR JOB:
+
+0. COPY    — Work on a copy. Never edit this template in place.
+
+1. STEMS   — Edit the STEMS list in the <script>.
+             Search: AGENT: STEMS
+             file  = path to the mp3 inside ./stems/
+             label = the name Brandon gives you
+             color = a distinct color per stem. It drives that
+                     stem's mini spectrogram AND its layer in the
+                     master spectrogram.
+             Delete unused entries. Max 8.
+
+2. TITLE   — Set <title> and the #song-title text.
+             Search: AGENT: TITLE
+
+3. STYLE   — Make it look good. That is YOUR job, not the
+             template's. Match Brandon's screenshots and style
+             comments. Everything visual lives in <style>; start
+             with the :root variables.
+             Search: AGENT: STYLE
+             The greys here are placeholders, not a design.
+             Master layering blend: Search AGENT: BLEND
+
+4. DO NOT  — Change the audio engine (search: ENGINE) unless
+             Brandon asks.
+
+SHIPPING
+- Ship this HTML with a folder named "stems" beside it:
+    song-folder/
+      song-name.html
+      stems/
+        01-name.mp3
+        02-name.mp3
+
+HOWTO — OPEN LOCALLY
+- Browsers block audio from a double-clicked HTML file.
+- Terminal: cd into the folder holding this HTML
+- Run:      python3 -m http.server 8000
+- Browser:  http://localhost:8000/song-name.html
+================================================================
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stem Player</title>
+
+<style>
+/* AGENT: STYLE — placeholder greys; replace with the real design */
+:root {
+  --bg: #1a1a1a;
+  --panel: #242424;
+  --border: #3a3a3a;
+  --text: #d0d0d0;
+  --text-dim: #808080;
+  --accent: #b0b0b0;
+  --spec-bg: #000000;
+  --font: system-ui, -apple-system, sans-serif;
+  --radius: 4px;
+  --gap: 12px;
+  --master-height: 40vh;
+  --eq-bg: #18222f;
+  --strip-spec-height: 80px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  padding: var(--gap);
+}
+
+/* header */
+#header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+#header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+/* song picker */
+#song-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+#song-select {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+/* notice */
+#notice {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+/* master spectrogram */
+#master {
+  flex: 1 1 var(--master-height);
+  min-height: 160px;
+  background: var(--spec-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  position: relative;
+}
+#master canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+#master-label {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+/* eq analyzer — shares the master window, one at a time */
+#eq-canvas {
+  background: var(--eq-bg);
+  cursor: crosshair;
+  touch-action: none;
+}
+#view-toggle {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 0.7rem;
+  padding: 3px 9px;
+  z-index: 2;
+}
+[hidden] { display: none !important; }
+
+/* transport */
+#transport {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+#transport button {
+  min-width: 56px;
+}
+#time {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  min-width: 96px;
+  text-align: center;
+}
+#scrub-wrap {
+  position: relative;
+  flex: 1 1 240px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+}
+#loop-region {
+  position: absolute;
+  top: 8px;
+  height: 8px;
+  background: var(--accent);
+  opacity: 0.25;
+  border-radius: 2px;
+  pointer-events: none;
+}
+#scrubber {
+  position: relative;
+  width: 100%;
+  margin: 0;
+}
+
+/* master volume */
+#master-vol-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+#master-vol {
+  width: 110px;
+  margin: 0;
+}
+#master-vol-out {
+  font-variant-numeric: tabular-nums;
+  min-width: 56px;
+  text-align: right;
+}
+#master-vol-out.hot {
+  color: #ffb703;
+}
+
+/* output meter */
+#meter {
+  position: relative;
+  width: 140px;
+  height: 14px;
+  background: #0d0d0d;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  cursor: pointer;
+  flex: none;
+}
+#meter-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 0;
+  background: linear-gradient(90deg, #06d6a0 0%, #06d6a0 62%, #ffb703 82%, #ff4d6d 100%);
+  background-size: 140px 100%;
+}
+#meter-hold {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 2px;
+  left: 0;
+  background: #ffffff;
+  opacity: 0.85;
+}
+#meter-clip {
+  position: absolute;
+  right: 3px; top: 1px;
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  color: #ff4d6d;
+  opacity: 0;
+  pointer-events: none;
+}
+#meter-clip.on {
+  opacity: 1;
+}
+
+/* buttons */
+button {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+button.on {
+  background: var(--accent);
+  color: var(--bg);
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* mixer */
+#mixer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+.strip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--stem-color, var(--border));
+  border-radius: var(--radius);
+}
+.strip-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.strip-spec {
+  display: block;
+  width: 100%;
+  height: var(--strip-spec-height);
+  background: var(--spec-bg);
+  border-radius: 2px;
+}
+.strip-status {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  min-height: 1em;
+}
+.ctl {
+  display: grid;
+  grid-template-columns: 28px 1fr 40px;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+.ctl input {
+  width: 100%;
+  margin: 0;
+}
+.ctl output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.btns {
+  display: flex;
+  gap: 6px;
+}
+.btns button {
+  flex: 1;
+}
+
+/* compressor */
+.comp-ctl {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+.comp-ctl .ctl {
+  grid-template-columns: 26px 1fr 34px;
+}
+button.comp.on {
+  background: var(--stem-color, var(--accent));
+  color: #000;
+}
+.comp-read {
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+</style>
+</head>
+<body>
+
+<!-- header -->
+<header id="header">
+  <h1 id="song-title">Stem Player</h1>
+  <label id="song-pick">SONG
+    <select id="song-select"></select>
+  </label>
+</header>
+
+<!-- notice -->
+<div id="notice" hidden></div>
+
+<!-- master spectrogram -->
+<section id="master">
+  <canvas id="master-spec"></canvas>
+  <canvas id="eq-canvas" hidden></canvas>
+  <div id="master-label">MASTER</div>
+  <button id="view-toggle">Analyzer</button>
+</section>
+
+<!-- transport -->
+<section id="transport">
+  <button id="btn-play" disabled>Play</button>
+  <button id="btn-stop" disabled>Stop</button>
+  <div id="scrub-wrap">
+    <div id="loop-region" hidden></div>
+    <input id="scrubber" type="range" min="0" max="1" step="any" value="0" disabled>
+  </div>
+  <span id="time">0:00 / 0:00</span>
+  <button id="btn-loop" disabled>Loop</button>
+  <button id="btn-in" disabled>Set In</button>
+  <button id="btn-out" disabled>Set Out</button>
+  <label id="master-vol-wrap">MASTER
+    <input id="master-vol" type="range" min="0" max="2.5" step="0.01" value="1">
+    <output id="master-vol-out">0.0 dB</output>
+  </label>
+  <div id="meter" title="output level — click to clear peak">
+    <i id="meter-fill"></i>
+    <i id="meter-hold"></i>
+    <b id="meter-clip">CLIP</b>
+  </div>
+</section>
+
+<!-- mixer -->
+<section id="mixer"></section>
+
+<!-- strip template -->
+<template id="strip-template">
+  <div class="strip">
+    <div class="strip-label"></div>
+    <canvas class="strip-spec"></canvas>
+    <div class="strip-status">loading…</div>
+    <label class="ctl">VOL
+      <input class="vol" type="range" min="0" max="1.25" step="0.01" value="1">
+      <output class="vol-out">0.0</output>
+    </label>
+    <label class="ctl">PAN
+      <input class="pan" type="range" min="-1" max="1" step="0.01" value="0">
+      <output class="pan-out">C</output>
+    </label>
+    <div class="btns">
+      <button class="solo" aria-pressed="false">S</button>
+      <button class="mute" aria-pressed="false">M</button>
+      <button class="comp" aria-pressed="false">C</button>
+    </div>
+    <div class="comp-ctl" hidden>
+      <label class="ctl">THRESH
+        <input class="thr" type="range" min="0" max="100" step="1" value="0">
+        <output class="thr-out">0</output>
+      </label>
+      <div class="comp-read"></div>
+    </div>
+  </div>
+</template>
+
+<script>
+// SONGS — folder name under stems/ ; add a line per song
+const SONGS = [
+  "believe",
+  "gangsters paradise",
+  "i want it that way",
+  "waterfalls",
+];
+
+// ██ TRACK START VOLUME ██  1.0 = unity. Lower = more room to push up.
+const TRACK_START_VOL = 0.45;
+
+// INSTRUMENTS — filename stem, strip label, spectrogram color
+const INSTRUMENTS = [
+  { name: "vocals", label: "VOCALS", color: "#ff4d6d" },
+  { name: "drums",  label: "DRUMS",  color: "#ffb703" },
+  { name: "bass",   label: "BASS",   color: "#8338ec" },
+  { name: "guitar", label: "GUITAR", color: "#06d6a0" },
+  { name: "piano",  label: "PIANO",  color: "#4cc9f0" },
+  { name: "other",  label: "OTHER",  color: "#adb5bd" },
+];
+
+// path builder — ../ because this file lives in pages/
+function stemPath(song, inst) {
+  return "../stems/" + encodeURIComponent(song) + "/" + inst + ".mp3";
+}
+
+const STEMS = INSTRUMENTS.map((i) => ({
+  file: stemPath(SONGS[0], i.name),
+  label: i.label,
+  color: i.color,
+}));
+
+// AGENT: BLEND — "lighter" for dark --spec-bg, "multiply" for light
+const MASTER_BLEND = "lighter";
+
+// ================================================================
+// ENGINE — do not edit unless Brandon asks
+// ================================================================
+
+// spectrogram settings
+const FFT_SIZE = 4096;
+const DB_MIN = -100;
+const DB_MAX = -25;
+const F_MIN = 30;
+const F_MAX = 16000;
+const SCROLL_PX = 1;
+const START_DELAY = 0.05;
+const DPR = window.devicePixelRatio || 1;
+
+// audio graph
+const ctx = new (window.AudioContext || window.webkitAudioContext)();
+const master = ctx.createGain();
+master.connect(ctx.destination);
+
+// transport state
+let playing = false;
+let offset = 0;
+let startCtxTime = 0;
+let startOffset = 0;
+let duration = 0;
+let scrubbing = false;
+const loop = { on: false, in: 0, out: 0 };
+
+// dom
+const $ = (id) => document.getElementById(id);
+const els = {
+  notice: $("notice"),
+  masterCanvas: $("master-spec"),
+  play: $("btn-play"),
+  stop: $("btn-stop"),
+  scrubber: $("scrubber"),
+  loopRegion: $("loop-region"),
+  time: $("time"),
+  loop: $("btn-loop"),
+  setIn: $("btn-in"),
+  setOut: $("btn-out"),
+  mixer: $("mixer"),
+  stripTemplate: $("strip-template"),
+};
+
+// tracks
+const tracks = STEMS.slice(0, 8).map(makeTrack);
+
+function makeTrack(stem) {
+  const gain = ctx.createGain();
+  const comp = ctx.createDynamicsCompressor();
+  const makeup = ctx.createGain();
+  const pan = ctx.createStereoPanner();
+  const mute = ctx.createGain();
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = FFT_SIZE;
+  analyser.smoothingTimeConstant = 0;
+  analyser.minDecibels = DB_MIN;
+  analyser.maxDecibels = DB_MAX;
+  // bypass state: ratio 1 + threshold 0 = no gain change
+  comp.threshold.value = 0;
+  comp.ratio.value = 1;
+  comp.knee.value = 6;
+  comp.attack.value = 0.003;
+  comp.release.value = 0.15;
+
+  gain.connect(comp);
+  comp.connect(makeup);
+  makeup.connect(pan);
+  pan.connect(mute);
+  mute.connect(analyser);
+  analyser.connect(master);
+
+  const node = els.stripTemplate.content.firstElementChild.cloneNode(true);
+  node.style.setProperty("--stem-color", stem.color);
+  node.querySelector(".strip-label").textContent = stem.label;
+  els.mixer.appendChild(node);
+
+  const track = {
+    ...stem,
+    buffer: null,
+    source: null,
+    gain, comp, makeup, pan, mute, analyser,
+    compOn: false,
+    bins: new Uint8Array(analyser.frequencyBinCount),
+    solo: false,
+    muted: false,
+    el: node,
+    status: node.querySelector(".strip-status"),
+    canvas: node.querySelector(".strip-spec"),
+  };
+  wireStrip(track);
+  return track;
+}
+
+// strip controls
+function wireStrip(t) {
+  const vol = t.el.querySelector(".vol");
+  const volOut = t.el.querySelector(".vol-out");
+  const pan = t.el.querySelector(".pan");
+  const panOut = t.el.querySelector(".pan-out");
+  const solo = t.el.querySelector(".solo");
+  const mute = t.el.querySelector(".mute");
+
+  vol.addEventListener("input", () => {
+    const v = parseFloat(vol.value);
+    t.gain.gain.setTargetAtTime(v, ctx.currentTime, 0.01);
+    volOut.textContent = v <= 0 ? "-∞" : (20 * Math.log10(v)).toFixed(1);
+  });
+
+  pan.addEventListener("input", () => {
+    const v = parseFloat(pan.value);
+    t.pan.pan.setTargetAtTime(v, ctx.currentTime, 0.01);
+    panOut.textContent = v === 0 ? "C" : (v < 0 ? "L" : "R") + Math.round(Math.abs(v) * 100);
+  });
+
+  solo.addEventListener("click", () => {
+    t.solo = !t.solo;
+    solo.classList.toggle("on", t.solo);
+    solo.setAttribute("aria-pressed", t.solo);
+    applySoloMute();
+  });
+
+  mute.addEventListener("click", () => {
+    t.muted = !t.muted;
+    mute.classList.toggle("on", t.muted);
+    mute.setAttribute("aria-pressed", t.muted);
+    applySoloMute();
+  });
+}
+
+// solo/mute resolve
+function applySoloMute() {
+  const anySolo = tracks.some((t) => t.solo);
+  tracks.forEach((t) => {
+    const audible = !t.muted && (!anySolo || t.solo);
+    t.mute.gain.setTargetAtTime(audible ? 1 : 0, ctx.currentTime, 0.01);
+  });
+}
+
+// load stems
+async function loadAll() {
+  await Promise.all(tracks.map(async (t) => {
+    try {
+      const res = await fetch(t.file);
+      if (!res.ok) throw new Error(res.status + " " + res.statusText);
+      t.buffer = await ctx.decodeAudioData(await res.arrayBuffer());
+      t.status.textContent = "";
+    } catch (err) {
+      t.status.textContent = "not loaded";
+      console.warn("stem load failed:", t.file, err);
+    }
+  }));
+
+  const loaded = tracks.filter((t) => t.buffer);
+  if (!loaded.length) {
+    showNotice(location.protocol === "file:"
+      ? "No stems loaded. This page was opened as a local file — browsers block that. Open it through a local server (see HOWTO at the top of this file)."
+      : "No stems loaded. Check the stems folder and the STEMS list.");
+    return;
+  }
+  if (loaded.length < tracks.length) {
+    showNotice((tracks.length - loaded.length) + " stem(s) failed to load. Check the file paths in STEMS.");
+  }
+
+  padBuffers(loaded);
+  duration = loaded[0].buffer.duration;
+  loop.in = 0;
+  loop.out = duration;
+  els.scrubber.max = duration;
+  [els.play, els.stop, els.scrubber, els.loop, els.setIn, els.setOut].forEach((b) => (b.disabled = false));
+  updateTime(0);
+  updateLoopRegion();
+}
+
+// equal-length buffers for locked loops
+function padBuffers(loaded) {
+  const len = Math.max(...loaded.map((t) => t.buffer.length));
+  loaded.forEach((t) => {
+    if (t.buffer.length === len) return;
+    const padded = ctx.createBuffer(t.buffer.numberOfChannels, len, t.buffer.sampleRate);
+    for (let ch = 0; ch < t.buffer.numberOfChannels; ch++) {
+      padded.copyToChannel(t.buffer.getChannelData(ch), ch);
+    }
+    t.buffer = padded;
+  });
+}
+
+function showNotice(msg) {
+  els.notice.textContent = msg;
+  els.notice.hidden = false;
+}
+
+// transport
+function position() {
+  if (!playing) return offset;
+  let p = startOffset + Math.max(0, ctx.currentTime - startCtxTime);
+  if (loop.on && p >= loop.out) {
+    p = loop.in + ((p - loop.in) % (loop.out - loop.in));
+  }
+  return Math.min(p, duration);
+}
+
+function play() {
+  if (!duration || playing) return;
+  ctx.resume();
+  let from = offset >= duration ? 0 : offset;
+  if (loop.on && (from < loop.in || from >= loop.out)) from = loop.in;
+  const when = ctx.currentTime + START_DELAY;
+  tracks.forEach((t) => {
+    if (!t.buffer) return;
+    const src = ctx.createBufferSource();
+    src.buffer = t.buffer;
+    src.loop = loop.on;
+    src.loopStart = loop.in;
+    src.loopEnd = loop.out;
+    src.connect(t.gain);
+    src.start(when, from);
+    t.source = src;
+  });
+  startCtxTime = when;
+  startOffset = from;
+  playing = true;
+  els.play.textContent = "Pause";
+  els.play.classList.add("on");
+}
+
+function stopSources() {
+  tracks.forEach((t) => {
+    if (!t.source) return;
+    try { t.source.stop(); } catch (e) {}
+    t.source.disconnect();
+    t.source = null;
+  });
+}
+
+function pause() {
+  if (!playing) return;
+  offset = position();
+  stopSources();
+  playing = false;
+  els.play.textContent = "Play";
+  els.play.classList.remove("on");
+}
+
+function stop() {
+  pause();
+  offset = 0;
+  updateTime(0);
+}
+
+function seek(p) {
+  const was = playing;
+  pause();
+  offset = Math.max(0, Math.min(p, duration));
+  if (was) play();
+  updateTime(offset);
+}
+
+function restartIfPlaying() {
+  if (playing) seek(position());
+}
+
+// loop controls
+function toggleLoop() {
+  loop.on = !loop.on;
+  els.loop.classList.toggle("on", loop.on);
+  updateLoopRegion();
+  restartIfPlaying();
+}
+
+function setLoopIn() {
+  const p = position();
+  loop.in = p < loop.out - 0.05 ? p : 0;
+  updateLoopRegion();
+  restartIfPlaying();
+}
+
+function setLoopOut() {
+  const p = position();
+  loop.out = p > loop.in + 0.05 ? p : duration;
+  updateLoopRegion();
+  restartIfPlaying();
+}
+
+function updateLoopRegion() {
+  els.loopRegion.hidden = !loop.on || !duration;
+  if (!duration) return;
+  els.loopRegion.style.left = (loop.in / duration) * 100 + "%";
+  els.loopRegion.style.width = ((loop.out - loop.in) / duration) * 100 + "%";
+}
+
+// time display
+function fmt(s) {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return m + ":" + String(sec).padStart(2, "0");
+}
+
+function updateTime(p) {
+  els.time.textContent = fmt(p) + " / " + fmt(duration);
+  if (!scrubbing) els.scrubber.value = p;
+}
+
+// transport events
+els.play.addEventListener("click", () => (playing ? pause() : play()));
+els.stop.addEventListener("click", stop);
+els.loop.addEventListener("click", toggleLoop);
+els.setIn.addEventListener("click", setLoopIn);
+els.setOut.addEventListener("click", setLoopOut);
+els.scrubber.addEventListener("input", () => {
+  scrubbing = true;
+  els.time.textContent = fmt(parseFloat(els.scrubber.value)) + " / " + fmt(duration);
+});
+els.scrubber.addEventListener("change", () => {
+  scrubbing = false;
+  seek(parseFloat(els.scrubber.value));
+});
+
+// spectrogram canvases
+const specs = [];
+
+function addSpec(canvas, layers, blend) {
+  const spec = { canvas, c2d: canvas.getContext("2d"), layers, blend, map: null, bg: "#000" };
+  new ResizeObserver(() => sizeSpec(spec)).observe(canvas);
+  sizeSpec(spec);
+  specs.push(spec);
+}
+
+function sizeSpec(spec) {
+  const r = spec.canvas.getBoundingClientRect();
+  const w = Math.max(1, Math.round(r.width * DPR));
+  const h = Math.max(1, Math.round(r.height * DPR));
+  if (spec.canvas.width === w && spec.canvas.height === h && spec.map) return;
+  spec.canvas.width = w;
+  spec.canvas.height = h;
+  spec.bg = getComputedStyle(spec.canvas).getPropertyValue("--spec-bg").trim() || "#000";
+  spec.c2d.fillStyle = spec.bg;
+  spec.c2d.fillRect(0, 0, w, h);
+  spec.map = buildMap(h);
+}
+
+// log-frequency row → fft bin
+function buildMap(h) {
+  const bins = FFT_SIZE / 2;
+  const nyquist = ctx.sampleRate / 2;
+  const map = new Uint16Array(h);
+  for (let y = 0; y < h; y++) {
+    const frac = 1 - (y + 0.5) / h;
+    const f = F_MIN * Math.pow(F_MAX / F_MIN, frac);
+    map[y] = Math.min(bins - 1, Math.round((f / nyquist) * bins));
+  }
+  return map;
+}
+
+function drawSpec(spec) {
+  const { canvas, c2d, map } = spec;
+  const w = canvas.width;
+  const h = canvas.height;
+  const col = Math.max(1, Math.round(SCROLL_PX * DPR));
+  const x = w - col;
+
+  c2d.globalCompositeOperation = "source-over";
+  c2d.globalAlpha = 1;
+  c2d.drawImage(canvas, -col, 0);
+  c2d.fillStyle = spec.bg;
+  c2d.fillRect(x, 0, col, h);
+
+  c2d.globalCompositeOperation = spec.blend;
+  spec.layers.forEach((t) => {
+    if (!t.buffer) return;
+    c2d.fillStyle = t.color;
+    for (let y = 0; y < h; y++) {
+      const v = t.bins[map[y]] / 255;
+      if (v < 0.02) continue;
+      c2d.globalAlpha = v;
+      c2d.fillRect(x, y, col, 1);
+    }
+  });
+  c2d.globalCompositeOperation = "source-over";
+  c2d.globalAlpha = 1;
+}
+
+// render loop
+function tick() {
+  if (playing) {
+    const p = position();
+    if (!loop.on && p >= duration) {
+      stop();
+    } else {
+      updateTime(p);
+      tracks.forEach((t) => t.analyser.getByteFrequencyData(t.bins));
+      specs.forEach(drawSpec);
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+// ================================================================
+// PER-TRACK COMPRESSOR — off by default, auto makeup gain
+// ================================================================
+
+// one slider, 0-100. threshold drops, ratio climbs, makeup holds the level.
+const COMP_THR_MIN = 0;    // dB at amount 0
+const COMP_THR_MAX = -42;  // dB at amount 100
+const COMP_RAT_MIN = 1;    // ratio at amount 0
+const COMP_RAT_MAX = 12;   // ratio at amount 100
+const COMP_MAKEUP = 0.55;  // level compensation, 1.0 = full theoretical
+
+// amount 0-100 → the three real values
+function compValues(amount) {
+  const a = amount / 100;
+  const thr = COMP_THR_MIN + (COMP_THR_MAX - COMP_THR_MIN) * a;
+  const ratio = COMP_RAT_MIN + (COMP_RAT_MAX - COMP_RAT_MIN) * a;
+  const makeDb = -thr * (1 - 1 / ratio) * COMP_MAKEUP;
+  return { thr, ratio, makeDb };
+}
+
+function applyComp(t) {
+  const now = ctx.currentTime;
+  const v = t.compOn ? compValues(t.amount) : { thr: 0, ratio: 1, makeDb: 0 };
+  t.comp.threshold.setTargetAtTime(v.thr, now, 0.01);
+  t.comp.ratio.setTargetAtTime(v.ratio, now, 0.01);
+  t.makeup.gain.setTargetAtTime(Math.pow(10, v.makeDb / 20), now, 0.02);
+  return v;
+}
+
+function wireComp(t) {
+  const btn = t.el.querySelector(".comp");
+  const panel = t.el.querySelector(".comp-ctl");
+  const thr = t.el.querySelector(".thr");
+  const thrOut = t.el.querySelector(".thr-out");
+  const read = t.el.querySelector(".comp-read");
+
+  t.amount = parseFloat(thr.value);
+
+  function refresh() {
+    const v = applyComp(t);
+    thrOut.textContent = t.amount;
+    read.textContent = t.compOn && t.amount > 0
+      ? v.thr.toFixed(0) + " dB  ·  " + v.ratio.toFixed(1) + ":1  ·  +" + v.makeDb.toFixed(1)
+      : "bypass";
+  }
+
+  btn.addEventListener("click", () => {
+    t.compOn = !t.compOn;
+    btn.classList.toggle("on", t.compOn);
+    btn.setAttribute("aria-pressed", t.compOn);
+    panel.hidden = !t.compOn;
+    refresh();
+  });
+
+  thr.addEventListener("input", () => {
+    t.amount = parseFloat(thr.value);
+    refresh();
+  });
+
+  refresh();
+}
+
+tracks.forEach(wireComp);
+
+// ================================================================
+// TRACK START VOLUME — applied after the strips are built
+// ================================================================
+
+tracks.forEach((t) => {
+  const vol = t.el.querySelector(".vol");
+  const volOut = t.el.querySelector(".vol-out");
+  vol.value = TRACK_START_VOL;
+  t.gain.gain.value = TRACK_START_VOL;
+  volOut.textContent = TRACK_START_VOL <= 0
+    ? "-∞"
+    : (20 * Math.log10(TRACK_START_VOL)).toFixed(1);
+});
+
+// ================================================================
+// MASTER VOLUME — unity at 1.0, boost to 2.5 (+8 dB)
+// ================================================================
+
+const masterVol = $("master-vol");
+const masterVolOut = $("master-vol-out");
+
+function setMasterVol(v) {
+  master.gain.setTargetAtTime(v, ctx.currentTime, 0.02);
+  masterVolOut.textContent = v <= 0 ? "-∞" : (20 * Math.log10(v)).toFixed(1) + " dB";
+  masterVolOut.classList.toggle("hot", v > 1);
+}
+
+masterVol.addEventListener("input", () => setMasterVol(parseFloat(masterVol.value)));
+setMasterVol(1);
+
+// ================================================================
+// OUTPUT METER — post-master peak, hold line, latching clip
+// ================================================================
+
+const METER_FLOOR = -48;     // dB at the left edge
+const METER_HOLD_FALL = 0.5; // dB per frame the white line drops
+const METER_CLIP_AT = 0.99;  // sample level that lights CLIP
+
+const meterEl = $("meter");
+const meterFill = $("meter-fill");
+const meterHold = $("meter-hold");
+const meterClip = $("meter-clip");
+let meterBuf = null;  // allocated on first frame; eqAnalyser is declared below
+let meterHoldDb = METER_FLOOR;
+
+function dbToPct(db) {
+  return Math.max(0, Math.min(1, (db - METER_FLOOR) / -METER_FLOOR)) * 100;
+}
+
+function meterTick() {
+  if (!meterBuf) meterBuf = new Uint8Array(eqAnalyser.fftSize);
+  eqAnalyser.getByteTimeDomainData(meterBuf);
+  let peak = 0;
+  for (let i = 0; i < meterBuf.length; i++) {
+    const v = Math.abs(meterBuf[i] - 128) / 128;
+    if (v > peak) peak = v;
+  }
+
+  const db = peak > 0 ? 20 * Math.log10(peak) : METER_FLOOR;
+  meterFill.style.width = dbToPct(db) + "%";
+
+  meterHoldDb = db > meterHoldDb ? db : Math.max(METER_FLOOR, meterHoldDb - METER_HOLD_FALL);
+  meterHold.style.left = "calc(" + dbToPct(meterHoldDb) + "% - 2px)";
+
+  if (peak >= METER_CLIP_AT) meterClip.classList.add("on");
+  requestAnimationFrame(meterTick);
+}
+
+meterEl.addEventListener("click", () => {
+  meterClip.classList.remove("on");
+  meterHoldDb = METER_FLOOR;
+});
+
+requestAnimationFrame(meterTick);
+
+// ================================================================
+// KEYBOARD — space plays and pauses
+// ================================================================
+
+document.addEventListener("keydown", (e) => {
+  if (e.code !== "Space" || e.repeat) return;
+  const tag = e.target.tagName;
+  if (tag === "SELECT" || tag === "TEXTAREA") return;
+  e.preventDefault();
+  if (els.play.disabled) return;
+  playing ? pause() : play();
+});
+
+// ================================================================
+// EQ SPECTRUM ANALYZER — master bus tap, own draw loop
+// ================================================================
+
+const EQ_FFT = 8192;
+const EQ_POINTS = 260;       // curve resolution
+const EQ_SMOOTH = 0.62;      // analyser averaging
+const EQ_TRAIL_FALL = 0.020; // pink trail decay per frame
+const EQ_F_MIN = 20;
+const EQ_F_MAX = 20000;
+const EQ_PAD_L = 30;         // px, dB scale gutter
+const EQ_PAD_T = 10;
+const EQ_PAD_B = 6;
+const EQ_LINE = "#cfe0f2";   // live curve
+const EQ_TRAIL = "#e0899f";  // peak trail
+const EQ_AXIS_Y = 0.60;      // freq label row, fraction of height
+
+const EQ_FREQS = [20,30,40,50,60,80,100,200,300,400,500,800,1000,2000,3000,4000,6000,8000,10000,20000];
+const EQ_LABELED = [20,30,40,50,60,80,100,200,300,400,500,800,1000,2000,3000,4000,6000,8000,10000,20000];
+const EQ_DBS = [0,5,10,15,20,25,30,35,40,45,50,55,60];
+
+// tap the master sum — parallel branch, audio path unchanged
+const eqAnalyser = ctx.createAnalyser();
+eqAnalyser.fftSize = EQ_FFT;
+eqAnalyser.smoothingTimeConstant = EQ_SMOOTH;
+eqAnalyser.minDecibels = -90;
+eqAnalyser.maxDecibels = -20;
+master.connect(eqAnalyser);
+
+const eqBins = new Uint8Array(eqAnalyser.frequencyBinCount);
+const eqLive = new Float32Array(EQ_POINTS);
+const eqTrail = new Float32Array(EQ_POINTS);
+const eqCanvas = $("eq-canvas");
+const eqC2d = eqCanvas.getContext("2d");
+let eqRanges = null;
+
+// point p covers a log-spaced slice of the fft
+function buildEqRanges() {
+  const bins = EQ_FFT / 2;
+  const nyquist = ctx.sampleRate / 2;
+  const r = [];
+  for (let p = 0; p < EQ_POINTS; p++) {
+    const lo = EQ_F_MIN * Math.pow(EQ_F_MAX / EQ_F_MIN, p / EQ_POINTS);
+    const hi = EQ_F_MIN * Math.pow(EQ_F_MAX / EQ_F_MIN, (p + 1) / EQ_POINTS);
+    const a = Math.floor((lo / nyquist) * bins);
+    const z = Math.max(a + 1, Math.ceil((hi / nyquist) * bins));
+    r.push([Math.min(a, bins - 1), Math.min(z, bins)]);
+  }
+  return r;
+}
+
+// log frequency → x
+function eqX(f, plotW) {
+  return EQ_PAD_L * DPR + (Math.log(f / EQ_F_MIN) / Math.log(EQ_F_MAX / EQ_F_MIN)) * plotW;
+}
+
+function fmtHz(f) {
+  return f >= 1000 ? (f / 1000) + "k" : String(f);
+}
+
+function sizeEq() {
+  const r = eqCanvas.getBoundingClientRect();
+  const w = Math.max(1, Math.round(r.width * DPR));
+  const h = Math.max(1, Math.round(r.height * DPR));
+  if (eqCanvas.width === w && eqCanvas.height === h) return;
+  eqCanvas.width = w;
+  eqCanvas.height = h;
+}
+
+function drawEqGrid(w, h, plotW, plotH, top) {
+  const fs = Math.round(9 * DPR);
+  eqC2d.font = fs + "px system-ui, sans-serif";
+  eqC2d.textBaseline = "middle";
+
+  // vertical frequency lines
+  eqC2d.strokeStyle = "rgba(150,180,215,0.10)";
+  eqC2d.lineWidth = Math.max(1, DPR * 0.6);
+  EQ_FREQS.forEach((f) => {
+    const x = Math.round(eqX(f, plotW)) + 0.5;
+    eqC2d.beginPath();
+    eqC2d.moveTo(x, top);
+    eqC2d.lineTo(x, top + plotH);
+    eqC2d.stroke();
+  });
+
+  // horizontal dB lines
+  EQ_DBS.forEach((db) => {
+    const y = Math.round(top + (db / 60) * plotH) + 0.5;
+    eqC2d.beginPath();
+    eqC2d.moveTo(EQ_PAD_L * DPR, y);
+    eqC2d.lineTo(w, y);
+    eqC2d.stroke();
+    eqC2d.fillStyle = "rgba(160,185,215,0.45)";
+    eqC2d.textAlign = "right";
+    eqC2d.fillText(String(db), EQ_PAD_L * DPR - 5 * DPR, y);
+  });
+
+  // frequency label row
+  const ly = top + plotH * EQ_AXIS_Y;
+  eqC2d.strokeStyle = "rgba(150,180,215,0.22)";
+  eqC2d.beginPath();
+  eqC2d.moveTo(EQ_PAD_L * DPR, Math.round(ly) + 0.5);
+  eqC2d.lineTo(w, Math.round(ly) + 0.5);
+  eqC2d.stroke();
+
+  eqC2d.textAlign = "center";
+  eqC2d.fillStyle = "rgba(170,195,225,0.70)";
+  EQ_LABELED.forEach((f) => {
+    const x = eqX(f, plotW);
+    if (x < EQ_PAD_L * DPR + 4 || x > w - 4) return;
+    const t = fmtHz(f);
+    const tw = eqC2d.measureText(t).width;
+    eqC2d.fillStyle = "rgba(24,34,47,0.92)";
+    eqC2d.fillRect(x - tw / 2 - 2 * DPR, ly - fs * 0.75, tw + 4 * DPR, fs * 1.5);
+    eqC2d.fillStyle = "rgba(170,195,225,0.70)";
+    eqC2d.fillText(t, x, ly);
+  });
+}
+
+function eqCurve(vals, plotW, plotH, top) {
+  eqC2d.beginPath();
+  for (let p = 0; p < EQ_POINTS; p++) {
+    const x = EQ_PAD_L * DPR + ((p + 0.5) / EQ_POINTS) * plotW;
+    const y = top + plotH - vals[p] * plotH;
+    if (p === 0) eqC2d.moveTo(x, y);
+    else eqC2d.lineTo(x, y);
+  }
+  eqC2d.stroke();
+}
+
+function drawEq() {
+  sizeEq();
+  const w = eqCanvas.width;
+  const h = eqCanvas.height;
+  if (!eqRanges) eqRanges = buildEqRanges();
+
+  const top = EQ_PAD_T * DPR;
+  const plotW = w - EQ_PAD_L * DPR;
+  const plotH = h - top - EQ_PAD_B * DPR;
+
+  eqAnalyser.getByteFrequencyData(eqBins);
+
+  eqC2d.globalCompositeOperation = "source-over";
+  eqC2d.globalAlpha = 1;
+  eqC2d.fillStyle = getComputedStyle(eqCanvas).backgroundColor || "#18222f";
+  eqC2d.fillRect(0, 0, w, h);
+  drawEqGrid(w, h, plotW, plotH, top);
+
+  // sample the fft into the curve arrays
+  for (let p = 0; p < EQ_POINTS; p++) {
+    const [a, z] = eqRanges[p];
+    let peak = 0;
+    for (let i = a; i < z; i++) if (eqBins[i] > peak) peak = eqBins[i];
+    eqLive[p] = peak / 255;
+    eqTrail[p] = eqLive[p] > eqTrail[p]
+      ? eqLive[p]
+      : Math.max(0, eqTrail[p] - EQ_TRAIL_FALL);
+  }
+
+  eqC2d.lineJoin = "round";
+  eqC2d.lineCap = "round";
+
+  // pink peak trail behind
+  eqC2d.strokeStyle = EQ_TRAIL;
+  eqC2d.globalAlpha = 0.6;
+  eqC2d.lineWidth = Math.max(1, DPR);
+  eqCurve(eqTrail, plotW, plotH, top);
+
+  // live curve in front
+  eqC2d.strokeStyle = EQ_LINE;
+  eqC2d.globalAlpha = 0.95;
+  eqC2d.lineWidth = Math.max(1, 1.3 * DPR);
+  eqCurve(eqLive, plotW, plotH, top);
+
+  eqC2d.globalAlpha = 1;
+}
+
+// ---- view toggle: spectrogram or analyzer, never both ----
+const viewToggle = $("view-toggle");
+const masterLabel = $("master-label");
+let eqOn = false;
+let eqRaf = 0;
+
+function eqTick() {
+  drawEq();
+  eqRaf = requestAnimationFrame(eqTick);
+}
+
+function setView(on) {
+  eqOn = on;
+  eqCanvas.hidden = !on;
+  els.masterCanvas.hidden = on;
+  masterLabel.textContent = on ? "ANALYZER" : "MASTER";
+  viewToggle.textContent = on ? "Spectrogram" : "Analyzer";
+  cancelAnimationFrame(eqRaf);
+  if (on) {
+    eqTrail.fill(0);
+    eqRaf = requestAnimationFrame(eqTick);
+  }
+}
+
+viewToggle.addEventListener("click", () => setView(!eqOn));
+new ResizeObserver(() => { if (eqOn) sizeEq(); }).observe(eqCanvas);
+setView(false);
+
+// ================================================================
+// SONG PICKER
+// ================================================================
+
+const songSelect = $("song-select");
+
+SONGS.forEach((s, i) => {
+  const opt = document.createElement("option");
+  opt.value = s;
+  opt.textContent = s;
+  if (i === 0) opt.selected = true;
+  songSelect.appendChild(opt);
+});
+
+// swap buffers, keep strips and colors
+async function loadSong(song) {
+  stop();
+  songSelect.disabled = true;
+  [els.play, els.stop, els.scrubber, els.loop, els.setIn, els.setOut].forEach((b) => (b.disabled = true));
+  els.notice.hidden = true;
+  loop.on = false;
+  els.loop.classList.remove("on");
+  els.loopRegion.hidden = true;
+
+  tracks.forEach((t, i) => {
+    t.file = stemPath(song, INSTRUMENTS[i].name);
+    t.buffer = null;
+    t.status.textContent = "loading…";
+  });
+  clearSpecs();
+  eqTrail.fill(0);
+  eqLive.fill(0);
+
+  await loadAll();
+  songSelect.disabled = false;
+}
+
+function clearSpecs() {
+  specs.forEach((s) => {
+    s.c2d.globalCompositeOperation = "source-over";
+    s.c2d.globalAlpha = 1;
+    s.c2d.fillStyle = s.bg;
+    s.c2d.fillRect(0, 0, s.canvas.width, s.canvas.height);
+  });
+}
+
+songSelect.addEventListener("change", () => loadSong(songSelect.value));
+
+// init
+addSpec(els.masterCanvas, tracks, MASTER_BLEND);
+tracks.forEach((t) => addSpec(t.canvas, [t], "source-over"));
+loadAll();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
