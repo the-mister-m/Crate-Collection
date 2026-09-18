@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>6 Elements — Listening</title>
+<style>
+:root{
+  --ink:#a9ced1;
+  --ink-dim:#7d9fa2;
+  --ink-bright:#d8eff1;
+  --bg-top:#2e3133;
+  --bg-bot:#141617;
+  --panel:#3a3e42;
+  --panel-hi:#4a4f54;
+  --panel-lo:#25282b;
+  --metal:#53585d;
+  --amber:#e0a44a;
+  --led-on:#6fe3c4;
+  --led-off:#2b3a38;
+  --screw:#6d7278;
+  --font:"Gill Sans","Gill Sans MT","Trebuchet MS",system-ui,-apple-system,sans-serif;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:var(--font);
+  color:var(--ink);
+  background:linear-gradient(180deg,var(--bg-top),var(--bg-bot));
+  display:flex; flex-direction:column;
+  min-height:100%;
+}
+.engrave{ text-shadow:0 1px 0 rgba(0,0,0,.8), 0 -1px 0 rgba(255,255,255,.06); }
+
+/* ---- chrome ---- */
+header{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:16px; padding:14px 22px;
+  background:linear-gradient(180deg,var(--panel-hi),var(--panel-lo));
+  border-bottom:1px solid rgba(0,0,0,.6);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07);
+}
+h1{
+  margin:0; font-size:15px; font-weight:600;
+  letter-spacing:4px; text-transform:uppercase;
+  color:var(--ink-bright);
+}
+.weeklab{ font-size:9.5px; letter-spacing:2px; color:var(--ink-dim) }
+
+/* ---- stage ---- */
+main{
+  flex:1;
+  display:flex; flex-direction:column; align-items:center;
+  gap:22px; padding:26px 22px 40px;
+}
+.panel{
+  width:100%; max-width:860px;
+  background:linear-gradient(180deg,var(--panel),var(--panel-lo));
+  border:1px solid rgba(0,0,0,.6); border-radius:6px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07), 0 6px 14px rgba(0,0,0,.45);
+  padding:20px 22px 22px;
+  position:relative;
+}
+.screwdot{
+  position:absolute; width:7px; height:7px; border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#8d9298,var(--screw));
+  box-shadow:0 1px 1px rgba(0,0,0,.7);
+}
+
+/* ---- question counter ---- */
+.qbar{ display:flex; align-items:center; justify-content:center; gap:22px }
+.qbar button{
+  font-family:var(--font); font-size:20px; line-height:1;
+  width:46px; height:40px; cursor:pointer;
+  color:var(--ink);
+  background:linear-gradient(180deg,var(--panel-hi),var(--panel-lo));
+  border:1px solid rgba(0,0,0,.6); border-radius:4px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08);
+}
+.qbar button:active{ box-shadow:inset 0 2px 5px rgba(0,0,0,.6) }
+.qbar button:disabled{ opacity:.3; cursor:default }
+.qnum{
+  min-width:210px; text-align:center;
+  font-size:11px; letter-spacing:3px; color:var(--ink-dim);
+}
+.qnum b{ display:block; font-size:38px; letter-spacing:2px; color:var(--ink-bright); font-weight:600 }
+
+/* ---- A / B ---- */
+.abrow{ display:flex; gap:26px; justify-content:center; margin-top:4px }
+.ab{
+  width:170px; height:104px; cursor:pointer;
+  font-family:var(--font); font-size:44px; font-weight:600; letter-spacing:3px;
+  color:var(--ink-bright);
+  background:linear-gradient(180deg,var(--panel-hi),var(--panel-lo));
+  border:1px solid rgba(0,0,0,.65); border-radius:5px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.09), 0 4px 0 rgba(0,0,0,.5);
+  position:relative;
+  transition:box-shadow .06s, transform .06s;
+}
+.ab:active{ transform:translateY(3px); box-shadow:inset 0 2px 6px rgba(0,0,0,.6) }
+.ab .led{
+  position:absolute; top:10px; left:50%; transform:translateX(-50%);
+  width:8px; height:8px; border-radius:50%;
+  background:var(--led-off);
+}
+.ab.lit .led{ background:var(--led-on); box-shadow:0 0 9px var(--led-on) }
+.ab .heard{
+  position:absolute; bottom:8px; left:0; right:0;
+  font-size:8.5px; letter-spacing:2px; color:var(--ink-dim);
+}
+
+/* ---- screens ---- */
+.screens{ display:flex; gap:18px; flex-wrap:wrap; justify-content:center }
+.screenwrap{ display:flex; flex-direction:column; gap:5px }
+.screenwrap .cap{ font-size:9.5px; letter-spacing:2.4px; color:var(--ink-dim) }
+.screen{
+  background:#101314;
+  border:1px solid rgba(0,0,0,.7); border-radius:3px;
+  box-shadow:inset 0 0 22px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.04);
+  display:block;
+}
+.legend{ display:flex; gap:18px; justify-content:center; font-size:9.5px; letter-spacing:2px; margin-top:14px }
+.legend i{ display:inline-block; width:16px; height:3px; margin-right:6px; vertical-align:middle }
+.legend .la i{ background:var(--ink) }
+.legend .lb i{ background:var(--amber) }
+.legend .ld i{ background:var(--led-on) }
+.legend span{ color:var(--ink-dim) }
+
+.hint{
+  text-align:center; font-size:10.5px; letter-spacing:1.4px;
+  color:var(--ink-dim); max-width:620px; line-height:1.7;
+}
+
+@media (max-width:720px){
+  .ab{ width:132px; height:88px; font-size:34px }
+  .qnum b{ font-size:30px }
+  header{ flex-direction:column; align-items:flex-start; gap:10px }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1 class="engrave">6 Elements — Listening</h1>
+  <span class="weeklab engrave">WEEK 1 &nbsp;&middot;&nbsp; VISUALS FULL</span>
+</header>
+
+<main>
+
+  <div class="panel">
+    <div class="screwdot" style="top:8px;left:8px"></div>
+    <div class="screwdot" style="top:8px;right:8px"></div>
+    <div class="screwdot" style="bottom:8px;left:8px"></div>
+    <div class="screwdot" style="bottom:8px;right:8px"></div>
+
+    <div class="qbar">
+      <button id="prev">&#8592;</button>
+      <div class="qnum">QUESTION<b id="qnum">1</b>OF <span id="qtot">15</span></div>
+      <button id="next">&#8594;</button>
+    </div>
+
+    <div class="abrow">
+      <button class="ab" id="btnA"><span class="led"></span>A<span class="heard" id="heardA"></span></button>
+      <button class="ab" id="btnB"><span class="led"></span>B<span class="heard" id="heardB"></span></button>
+    </div>
+  </div>
+
+  <div class="panel" id="screenpanel">
+    <div class="screwdot" style="top:8px;left:8px"></div>
+    <div class="screwdot" style="top:8px;right:8px"></div>
+    <div class="screens">
+      <div class="screenwrap" id="wrapfft">
+        <div class="cap engrave">SPECTRUM &nbsp;0&ndash;4&nbsp;kHz</div>
+        <canvas class="screen" id="fft" width="390" height="190"></canvas>
+      </div>
+      <div class="screenwrap" id="wrapenv">
+        <div class="cap engrave">ENVELOPE &nbsp;OVER TIME</div>
+        <canvas class="screen" id="env" width="390" height="190"></canvas>
+      </div>
+    </div>
+    <div class="legend">
+      <span class="la"><i></i>CLIP A</span>
+      <span class="lb"><i></i>CLIP B</span>
+      <span class="ld" id="difflegend"><i></i>WHAT CHANGED</span>
+    </div>
+  </div>
+
+  <p class="hint engrave">
+    Play A. Play B. Play them again. Answer on paper.
+  </p>
+
+</main>
+
+<script>
+"use strict";
+
+/* ================================================================
+   ██  LISTENING BANK — EDIT THIS. NOTHING ELSE.  ██
+   ================================================================
+
+   One entry per question. A and B are the same sound EXCEPT for
+   one element. That element is the answer.
+
+     el   — the answer. teacher-side only, never shown on screen.
+     tax  — rung on the ladder.
+            1 IDENTIFY  2 DIRECTION  3 RANK
+            4 BUILD     5 EXPLAIN    6 JUDGE
+     a/b  — the two clips. anything you leave out uses DEFAULT.
+     note — teacher-only. what they will get wrong.
+
+   CLIP FIELDS
+     pitch   Hz of the fundamental
+     level   0–1, the peak volume
+     dur     seconds the trigger is held down
+     env     [attack, decay, sustain, release]  A D R in seconds, S is a level 0–1
+     parts   volume of each partial, left to right. [1] alone = pure tone
+     pan     -1 hard left … 0 center … +1 hard right
+     reverb  0–1 wet
+     delay   0–1 wet
+
+   ================================================================ */
+
+const DEFAULT = {
+  pitch:  220,
+  level:  0.70,
+  dur:    1.20,
+  env:    [0.005, 0.10, 0.80, 0.30],
+  parts:  [1, .5, .33, .25, .2],
+  pan:    0,
+  reverb: 0,
+  delay:  0
+};
+
+const BANK = [
+
+  { id:1, el:"PITCH", tax:1,
+    a:{ pitch:220 }, b:{ pitch:330 },
+    note:"first one of the year. it should feel free." },
+
+  { id:2, el:"PITCH", tax:2,
+    a:{ pitch:330 }, b:{ pitch:165 },
+    note:"B is lower, so the wavelength is LONGER. half will say shorter." },
+
+  { id:3, el:"VOLUME", tax:1,
+    a:{ level:.75 }, b:{ level:.28 },
+    note:"pitch is locked at 220 both times." },
+
+  { id:4, el:"VOLUME", tax:2,
+    a:{ level:.28 }, b:{ level:.80 },
+    note:"B is bigger amplitude. the FFT bars get taller, not wider." },
+
+  { id:5, el:"DURATION", tax:1,
+    a:{ dur:.15 }, b:{ dur:2.60 },
+    note:"they may say ENVELOPE. the SHAPE is identical, only the hold changed." },
+
+  { id:6, el:"DURATION", tax:2,
+    a:{ dur:2.60 }, b:{ dur:.12 },
+    note:"B is sudden. reverse of 5 on purpose — catches the pattern-guessers." },
+
+  { id:7, el:"TIMBRE", tax:1,
+    a:{ parts:[1,.5,.33,.25,.2] }, b:{ parts:[1,0,.33,0,.2] },
+    note:"THE BIG ONE. they will say PITCH. the leftmost FFT bar never moves." },
+
+  { id:8, el:"TIMBRE", tax:2,
+    a:{ parts:[1] }, b:{ parts:[1,.6,.5,.45,.4] },
+    note:"B is fuller. A is a pure sine — one bar, nothing else." },
+
+  { id:9, el:"ENVELOPE", tax:1,
+    a:{ env:[0.002,.10,.80,.30] }, b:{ env:[0.700,.10,.80,.30] },
+    note:"same length, same pitch, same loudness. only the ARRIVAL changed." },
+
+  { id:10, el:"ENVELOPE", tax:2,
+    a:{ env:[0.700,.10,.80,.45] }, b:{ env:[0.002,.06,.70,.12] },
+    note:"B is the hit. A is the bow." },
+
+  { id:11, el:"SPACE", tax:1,
+    a:{ reverb:0 }, b:{ reverb:.85 },
+    note:"they will say VOLUME. level is locked at .70 both times." },
+
+  { id:12, el:"SPACE", tax:2,
+    a:{ reverb:.85 }, b:{ reverb:0 },
+    note:"B is closer. dry equals close." },
+
+  { id:13, el:"SPACE", tax:5,
+    a:{ reverb:0 }, b:{ reverb:.85 },
+    note:"same pair as 11, asked one rung higher. explain, don't identify." },
+
+  { id:14, el:"ENVELOPE", tax:6,
+    a:{ env:[1.200,.20,.75,1.40], reverb:.7, dur:1.8 },
+    b:{ env:[0.002,.05,.30,.08], reverb:0,  dur:1.8 },
+    note:"opinion. no wrong answer. they must name an element to get credit." },
+
+];
+
+/* ================================================================
+   below here is machinery — you shouldn't need to touch it
+   ================================================================ */
+
+/* ---- state ---- */
+let idx = 0;
+const spec = { a:null, b:null };         // captured spectra
+const heard = { a:false, b:false };
+
+/* ---- audio ---- */
+const A = { ctx:null, an:null, ir:null };
+
+function boot(){
+  if(A.ctx) return;
+  A.ctx = new (window.AudioContext || window.webkitAudioContext)();
+  A.an = A.ctx.createAnalyser();
+  A.an.fftSize = 4096;
+  A.an.smoothingTimeConstant = 0;
+  A.an.connect(A.ctx.destination);
+  A.ir = makeIR(2.4, 2.6);
+}
+
+/* impulse response for the convolver */
+function makeIR(sec, decay){
+  const rate = A.ctx.sampleRate, len = Math.floor(rate*sec);
+  const buf = A.ctx.createBuffer(2, len, rate);
+  for(let c=0;c<2;c++){
+    const d = buf.getChannelData(c);
+    for(let i=0;i<len;i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/len, decay);
+  }
+  return buf;
+}
+
+/* one clip, scheduled, with peak-hold capture */
+function play(raw, slot){
+  boot();
+  if(A.ctx.state === "suspended") A.ctx.resume();
+
+  const S = Object.assign({}, DEFAULT, raw);
+  const t = A.ctx.currentTime + 0.04;
+  const [at, dc, su, rl] = S.env;
+
+  const vca = A.ctx.createGain();
+  const pan = A.ctx.createStereoPanner();
+  pan.pan.value = S.pan;
+
+  /* partial bank */
+  const oscs = [];
+  S.parts.forEach(function(g,i){
+    if(g <= 0) return;
+    const o = A.ctx.createOscillator();
+    o.type = "sine";
+    o.frequency.value = S.pitch * (i+1);
+    const og = A.ctx.createGain();
+    og.gain.value = g * 0.26;
+    o.connect(og); og.connect(vca);
+    o.start(t);
+    oscs.push(o);
+  });
+
+  /* dry + wet */
+  vca.connect(pan);
+  const sum = A.ctx.createGain();
+  const dry = A.ctx.createGain();
+  dry.gain.value = 1 - 0.55*S.reverb - 0.35*S.delay;
+  pan.connect(dry); dry.connect(sum);
+
+  if(S.reverb > 0){
+    const cv = A.ctx.createConvolver(); cv.buffer = A.ir;
+    const wg = A.ctx.createGain(); wg.gain.value = S.reverb;
+    pan.connect(cv); cv.connect(wg); wg.connect(sum);
+  }
+  if(S.delay > 0){
+    const dn = A.ctx.createDelay(2.0); dn.delayTime.value = 0.28;
+    const fb = A.ctx.createGain(); fb.gain.value = 0.42;
+    const wg = A.ctx.createGain(); wg.gain.value = S.delay;
+    pan.connect(dn); dn.connect(fb); fb.connect(dn);
+    dn.connect(wg); wg.connect(sum);
+  }
+  sum.connect(A.an);
+
+  /* ADSR */
+  const hold = Math.max(S.dur, at + dc + 0.02);
+  const off  = t + hold;
+  vca.gain.setValueAtTime(0, t);
+  vca.gain.linearRampToValueAtTime(S.level, t + at);
+  vca.gain.linearRampToValueAtTime(S.level * su, t + at + dc);
+  vca.gain.setValueAtTime(S.level * su, off);
+  vca.gain.linearRampToValueAtTime(0.0001, off + rl);
+
+  const tail = (S.reverb > 0 ? 2.0 : 0) + (S.delay > 0 ? 1.4 : 0);
+  oscs.forEach(function(o){ o.stop(off + rl + 0.05); });
+  setTimeout(function(){ try{ sum.disconnect(); }catch(e){} },
+             (hold + rl + tail + 0.3) * 1000);
+
+  /* light the led for the length of the note */
+  const btn = document.getElementById(slot === "a" ? "btnA" : "btnB");
+  btn.classList.add("lit");
+  setTimeout(function(){ btn.classList.remove("lit"); }, (hold + rl) * 1000);
+
+  capture(slot, (hold + rl) * 1000);
+  heard[slot] = true;
+  paint();
+}
+
+/* peak-hold the analyser for the life of the note */
+function capture(slot, ms){
+  const bins = new Uint8Array(A.an.frequencyBinCount);
+  const peak = new Uint8Array(A.an.frequencyBinCount);
+  const end = performance.now() + ms;
+  (function step(){
+    A.an.getByteFrequencyData(bins);
+    for(let i=0;i<bins.length;i++) if(bins[i] > peak[i]) peak[i] = bins[i];
+    spec[slot] = peak;
+    draw();
+    if(performance.now() < end) requestAnimationFrame(step);
+  })();
+}
+
+/* ---- drawing ---- */
+const COL = { a:"#a9ced1", b:"#e0a44a", d:"#6fe3c4", grid:"#1e2426", dim:"#7d9fa2" };
+const TOP_HZ = 4000;
+
+function grid(g, w, h){
+  g.fillStyle = "#101314"; g.fillRect(0,0,w,h);
+  g.strokeStyle = COL.grid; g.lineWidth = 1;
+  for(let i=1;i<8;i++){
+    const x = Math.round(w*i/8)+.5;
+    g.beginPath(); g.moveTo(x,0); g.lineTo(x,h); g.stroke();
+  }
+  for(let i=1;i<4;i++){
+    const y = Math.round(h*i/4)+.5;
+    g.beginPath(); g.moveTo(0,y); g.lineTo(w,y); g.stroke();
+  }
+}
+
+function drawFFT(){
+  const c = document.getElementById("fft"), g = c.getContext("2d");
+  const w = c.width, h = c.height;
+  grid(g, w, h);
+  if(!A.ctx){ label(g,w,h,"PRESS A"); return; }
+
+  const nyq = A.ctx.sampleRate/2;
+  const n = Math.floor((TOP_HZ/nyq) * A.an.frequencyBinCount);
+
+  /* difference shading — once both are heard */
+  if(spec.a && spec.b){
+    g.fillStyle = "rgba(111,227,196,.20)";
+    for(let i=0;i<n;i++){
+      const d = Math.abs(spec.a[i] - spec.b[i]);
+      if(d < 26) continue;
+      const x = (i/n)*w, bw = Math.max(2, w/n);
+      g.fillRect(x, 0, bw, h);
+    }
+  }
+
+  trace(g, spec.a, n, w, h, COL.a);
+  trace(g, spec.b, n, w, h, COL.b);
+
+  /* axis ticks */
+  g.fillStyle = COL.dim; g.font = "9px 'Gill Sans',sans-serif";
+  for(let k=1;k<=3;k++){
+    const x = (k*1000/TOP_HZ)*w;
+    g.fillText(k+"k", x+3, h-5);
+  }
+}
+
+function trace(g, data, n, w, h, color){
+  if(!data) return;
+  g.strokeStyle = color; g.lineWidth = 1.6;
+  g.beginPath();
+  for(let i=0;i<n;i++){
+    const x = (i/n)*w;
+    const y = h - (data[i]/255)*(h-10) - 4;
+    if(i===0) g.moveTo(x,y); else g.lineTo(x,y);
+  }
+  g.stroke();
+}
+
+function drawENV(){
+  const c = document.getElementById("env"), g = c.getContext("2d");
+  const w = c.width, h = c.height;
+  grid(g, w, h);
+
+  const q = BANK[idx];
+  const sa = Object.assign({}, DEFAULT, q.a);
+  const sb = Object.assign({}, DEFAULT, q.b);
+  const span = Math.max(total(sa), total(sb));
+
+  if(heard.a && heard.b){
+    g.strokeStyle = "rgba(111,227,196,.28)"; g.lineWidth = 1;
+    const xa = (hold(sa)/span)*w, xb = (hold(sb)/span)*w;
+    [xa,xb].forEach(function(x){
+      g.beginPath(); g.setLineDash([3,3]);
+      g.moveTo(x,0); g.lineTo(x,h); g.stroke(); g.setLineDash([]);
+    });
+  }
+
+  if(heard.a) shape(g, sa, span, w, h, COL.a);
+  if(heard.b) shape(g, sb, span, w, h, COL.b);
+  if(!heard.a && !heard.b) label(g, w, h, "PRESS A");
+
+  g.fillStyle = COL.dim; g.font = "9px 'Gill Sans',sans-serif";
+  g.fillText(span.toFixed(1)+"s", w-26, h-5);
+}
+
+function hold(S){ return Math.max(S.dur, S.env[0] + S.env[1] + 0.02); }
+function total(S){ return hold(S) + S.env[3]; }
+
+function shape(g, S, span, w, h, color){
+  const [at,dc,su,rl] = S.env;
+  const H = hold(S);
+  const px = function(t){ return (t/span)*w; };
+  const py = function(v){ return h - v*(h-14) - 6; };
+  g.strokeStyle = color; g.lineWidth = 1.8;
+  g.beginPath();
+  g.moveTo(px(0),            py(0));
+  g.lineTo(px(at),           py(S.level));
+  g.lineTo(px(at+dc),        py(S.level*su));
+  g.lineTo(px(H),            py(S.level*su));
+  g.lineTo(px(H+rl),         py(0));
+  g.stroke();
+}
+
+function label(g,w,h,txt){
+  g.fillStyle = COL.dim; g.font = "10px 'Gill Sans',sans-serif";
+  g.textAlign = "center";
+  g.fillText(txt, w/2, h/2);
+  g.textAlign = "left";
+}
+
+function draw(){ drawFFT(); drawENV(); }
+
+/* ---- ui ---- */
+function paint(){
+  const q = BANK[idx];
+  document.getElementById("qnum").textContent = q.id;
+  document.getElementById("qtot").textContent = BANK.length;
+  document.getElementById("prev").disabled = (idx === 0);
+  document.getElementById("next").disabled = (idx === BANK.length-1);
+  document.getElementById("heardA").textContent = heard.a ? "HEARD" : "";
+  document.getElementById("heardB").textContent = heard.b ? "HEARD" : "";
+
+  draw();
+}
+
+function goto(i){
+  idx = Math.max(0, Math.min(BANK.length-1, i));
+  spec.a = spec.b = null;
+  heard.a = heard.b = false;
+  paint();
+}
+
+document.getElementById("btnA").addEventListener("click", function(){ play(BANK[idx].a, "a"); });
+document.getElementById("btnB").addEventListener("click", function(){ play(BANK[idx].b, "b"); });
+document.getElementById("prev").addEventListener("click", function(){ goto(idx-1); });
+document.getElementById("next").addEventListener("click", function(){ goto(idx+1); });
+
+paint();
+</script>
+
+</body>
+</html>
